@@ -94,6 +94,11 @@ sudo npm install -g truffle ganache ipfs
 - OpenZeppelin không phải phần mềm độc lập, mà là thư viện npm (dạng package JavaScript) dành cho Solidity/Truffle.
 - Nó giúp bạn có sẵn các smart contract chuẩn bảo mật (ERC20, ERC721, AccessControl, Ownable, v.v.) để khỏi phải tự code lại từ đầu.
 
+### Tool khác
+
+```
+sudo apt install -y curl git build-essential jq
+```
 **⚙️ 1. Cài trong project hiện tại (khuyến nghị)**
 - Vào thư mục project blockchain của bạn (ví dụ student-ledger hoặc truffle-demo) rồi chạy:
 ```
@@ -102,7 +107,7 @@ npm install @openzeppelin/contracts
 # node_modules/@openzeppelin/contracts/
 ```
 
-**🧩 3. Nếu bạn dùng Truffle, cần cài thêm dev tools:** Trong thư mục Truffle project:
+**🧩 2. Nếu bạn dùng Truffle, cần cài thêm dev tools:** Trong thư mục Truffle project:
 ```
 npm install @openzeppelin/contracts @openzeppelin/test-helpers
 ```
