@@ -112,3 +112,34 @@ npm install @openzeppelin/contracts
 npm install @openzeppelin/contracts @openzeppelin/test-helpers
 ```
 - Tăng khả năng test, debug và triển khai smart contract bằng thư viện của OpenZeppelin.
+
+# CODE DEWMO
+
+### Test nhanh Ganache (để chắc chắn mọi thứ OK)
+**Mở terminal 1:**
+```
+ganache -p 8545 -m "test test test test test test test test test test test junk"
+```
+
+### Tạo project & cài dependency
+
+```
+mkdir -p ~/student-ledger && cd ~/student-ledger
+truffle init
+
+npm init -y
+npm install @openzeppelin/contracts dotenv
+```
+
+```
+student-ledger/
+├── contracts/
+│   ├── AccessControlRegistry.sol
+│   ├── TranscriptRegistry.sol
+│   └── DiplomaRegistry.sol
+├── migrations/
+│   ├── 1_initial_migration.js
+│   └── 2_deploy_core.js
+├── truffle-config.js
+└── package.json
+```
