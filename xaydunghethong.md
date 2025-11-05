@@ -143,3 +143,16 @@ student-ledger/
 ├── truffle-config.js
 └── package.json
 ```
+
+### Compile & migrate (nhớ Ganache đang chạy)
+
+**Trong thư mục ~/student-ledger:**
+```
+truffle compile
+truffle migrate --reset --network development
+```
+
+### Chạy ipfs
+```
+ipfs daemon
+```
