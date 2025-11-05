@@ -48,7 +48,8 @@ Giảng viên nhập điểm → Ký → IPFS → Trưởng khoa ký tổng hợ
 - Có tab “Thu hồi bằng” với lý do
 
 **Sinh viên:**
-Trang “Tiến trình học tập” (timeline)
-Nút “Đăng ký xét tốt nghiệp”
-Khi có NFT → xem thông tin, QR verify
+- Trang “Tiến trình học tập” (timeline)
+- Nút “Đăng ký xét tốt nghiệp”
+- Khi có NFT → xem thông tin, QR verify
 
+**Admin Portal (web)**
