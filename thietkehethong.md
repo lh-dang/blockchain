@@ -56,7 +56,7 @@ Giảng viên nhập điểm → Ký → IPFS → Trưởng khoa ký tổng hợ
 → Doanh nghiệp có thể verify đến từng môn bằng 2 lớp proof, không phải lộ hết kỳ.
 
 ## 4 Vai trò & quyền hạn (điểm mạnh)
-- **Lecturer (GV):** nhập điểm → ký EIP-712 → tạo grade.json (v1, v2…) lên IPFS.
+- **Lecturer (GV):** nhập điểm (form hoặc CSV) → ký EIP-712 → tạo grade.json (v1, v2…) lên IPFS.
 - **Dean (Trưởng khoa):** hệ thống tự gom → tính GPA/TC → ký EIP-712 semester.json (chứa “pointer latest” và version từng môn).
 - **Rector (Hiệu trưởng/Issuer):** build Merkle cho toàn khoa/kỳ → commit on-chain (1 giao dịch/kỳ) → issue/revoke bằng trên DiplomaRegistry (ký bằng Ledger/Gnosis Safe).
 - **Admin:** quản trị học kỳ, môn, CSV, phân quyền; không can thiệp nội dung học thuật.
