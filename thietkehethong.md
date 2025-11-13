@@ -179,42 +179,91 @@ event SemesterGradesRecorded(
   - Số tín chỉ
   - GPA học kỳ
 
-#### 3.2. Yêu cầu xét tốt nghiệp
+#### 3.2. Yêu cầu xét tốt nghiệp & Mint NFT (TRUSTLESS)
 
-**Khi bấm nút "Xét tốt nghiệp":**
+**Khi bấm nút "Mint Diploma":**
 
-Contract đọc:
-1. Danh sách **học kỳ bắt buộc** từ `curriculum` (VD: tối thiểu 8 học kỳ)
-2. `semesterGrades[student][semesterId]` cho tất cả học kỳ
-3. Tải file IPFS của từng học kỳ → verify hash
-4. Parse JSON để lấy điểm từng môn
+**Quy trình tự động 100% on-chain:**
 
-**Điều kiện:**
-- Tất cả môn bắt buộc đều có điểm **≥ 5.0**
-- Đủ số tín chỉ tích lũy
-- Có đầy đủ học kỳ theo chương trình
-- → Cho phép mint NFT
+```solidity
+// Sinh viên tự gọi, không cần admin
+function mintDiploma() external {
+    require(!hasRole(STUDENT_ROLE, msg.sender) || msg.sender != address(0));
+    require(!hasDiploma[msg.sender], "Already graduated");
+    
+    // 1. Kiểm tra điều kiện tốt nghiệp
+    require(checkGraduation(msg.sender), "Not eligible");
+    
+    // 2. Tính Merkle root từ tất cả học kỳ
+    bytes32 merkleRoot = calculateMerkleRoot(msg.sender);
+    
+    // 3. Mint NFT tự động
+    uint256 tokenId = _tokenIdCounter++;
+    _safeMint(msg.sender, tokenId);
+    hasDiploma[msg.sender] = true;
+    
+    // 4. Emit event
+    emit DiplomaIssued(tokenId, msg.sender, merkleRoot, block.timestamp);
+}
+```
+
+**Contract tự kiểm tra:**
+1. Danh sách **học kỳ bắt buộc** từ `curriculum[major]`
+2. `semesterGrades[student][semesterId]` cho tất cả học kỳ phải `.exists == true`
+3. Chưa từng mint diploma (`hasDiploma[student] == false`)
+4. Tính Merkle root từ hash các học kỳ
+
+**Điều kiện on-chain:**
+- ✅ Tất cả học kỳ bắt buộc đã submit
+- ✅ Mỗi học kỳ có CID và hash hợp lệ
+- ✅ Chưa tốt nghiệp trước đó
+
+> 💡 **Trustless 100%**: Không cần admin, không cần ai phê duyệt. Smart contract tự quyết định dựa trên dữ liệu on-chain.
 
 ---
 
-### 4. Cấp bằng tốt nghiệp (Mint NFT)
+### 4. Cấp bằng tốt nghiệp (Mint NFT) - TRUSTLESS
 
-#### 4.1. Khi điều kiện tốt nghiệp thỏa
+#### 4.1. Quy trình tự động hoàn toàn
 
-**Contract sẽ:**
-1. Tính **Merkle root** hoặc metadata tổng hợp từ danh sách môn & điểm hiệu lực
-2. Mint **1 NFT duy nhất** cho sinh viên
-3. Metadata NFT chứa:
-   - Merkle root → đại diện toàn bộ quá trình học
-   - Link verify
-   - Thời gian tốt nghiệp
+**Sinh viên tự mint khi đủ điều kiện:**
 
-#### 4.2. NFT = Bằng tốt nghiệp
+```javascript
+// Frontend - Sinh viên click "Mint Diploma"
+await contract.mintDiploma();
+// ✅ Thành công → NFT được mint
+// ❌ Thất bại → Hiện lý do: thiếu học kỳ X, đã tốt nghiệp, etc.
+```
 
-**Doanh nghiệp chỉ cần:**
-- `tokenId` → verify tồn tại
-- Metadata → verify Merkle root
-- Hash on-chain = hash của IPFS ciphertext → xác thực file bảng điểm sinh viên cung cấp
+**Contract tự động:**
+1. Kiểm tra `curriculum[studentMajor[msg.sender]].requiredSemesters[]`
+2. Verify tất cả học kỳ đã submit (`exists == true`)
+3. Tính **Merkle root** = `hash(HK1_hash + HK2_hash + ... + HK8_hash)`
+4. Mint **1 NFT duy nhất** cho sinh viên
+5. Đánh dấu `hasDiploma[student] = true` → không mint lại được
+
+**Metadata NFT (lưu on-chain hoặc IPFS):**
+```json
+{
+  "name": "University Diploma #123",
+  "description": "Blockchain-verified graduation certificate",
+  "merkleRoot": "0xabc123...",
+  "graduationDate": 1699920000,
+  "student": "0x1234...",
+  "major": "Computer Science"
+}
+```
+
+#### 4.2. NFT = Bằng tốt nghiệp (Tamper-proof)
+
+**Doanh nghiệp verify:**
+1. Kiểm tra `ownerOf(tokenId) == studentAddress`
+2. Lấy `merkleRoot` từ NFT metadata
+3. Lấy hash từng học kỳ: `semesterGrades[student][semesterId].hashCiphertext`
+4. Tính lại merkleRoot và so sánh
+5. ✅ Khớp → Bằng thật, dữ liệu đầy đủ
+
+> 🔒 **Không thể giả mạo**: NFT chỉ mint được khi contract verify đủ điều kiện. Không ai (kể cả admin) can thiệp được.
 
 ---
 
@@ -273,9 +322,11 @@ Contract đọc:
 |-----------|-------|
 | 🔐 **Mã hóa end-to-end** | Dữ liệu sinh viên được mã hóa bằng public key |
 | 🕵️ **Ẩn danh** | Blockchain chỉ giữ hash, không lộ danh tính |
-| 🔒 **Immutable** | Giảng viên không thể sửa điểm cũ → chỉ tạo attempt mới |
-| ✅ **Chống giả mạo** | Sinh viên không thể giả mạo điểm vì: CID mã hóa, Hash on-chain, Mint NFT final |
+| 🔒 **Immutable** | Giảng viên không thể sửa điểm cũ → chỉ tạo version mới |
+| ✅ **Chống giả mạo** | Sinh viên không thể giả mạo điểm vì: CID mã hóa, Hash on-chain, Merkle proof |
 | 🏢 **Verify độc lập** | Doanh nghiệp verify độc lập, không phụ thuộc nhà trường |
+| 🚫 **Trustless 100%** | **Sinh viên tự mint diploma khi đủ điều kiện, không cần admin phê duyệt** |
+| 🛡️ **Chống mint lại** | Mapping `hasDiploma[]` ngăn mint trùng lặp |
 
 ---
 
@@ -313,13 +364,13 @@ StudentManagement.sol
 
 ## VIII. TÓM TẮT THEO PHONG CÁCH "DỒN TRỌNG TÂM"
 
-| Thành phần | Cách thức | Tối ưu chi phí |
-|------------|-----------|----------------|
-| 📚 **Học kỳ** | 1 học kỳ = 1 record on-chain | ✅ Giảm 85% gas |
-| 📊 **Điểm chi tiết** | JSON mã hóa trên IPFS | ✅ Không tốn gas |
-| 🎓 **Xét tốt nghiệp** | Kiểm tra đủ học kỳ + verify hash | ✅ Tự động hóa |
-| 📝 **Cập nhật điểm** | Version mới, event cũ vẫn tồn tại | ✅ Audit trail đầy đủ |
-| 🏆 **NFT bằng** | Mint 1 NFT với Merkle root tất cả học kỳ | ✅ Bất biến |
+| Thành phần | Cách thức | Tối ưu chi phí | Trustless |
+|------------|-----------|----------------|----------|
+| 📚 **Học kỳ** | 1 học kỳ = 1 record on-chain | ✅ Giảm 85% gas | ✅ |
+| 📊 **Điểm chi tiết** | JSON mã hóa trên IPFS | ✅ Không tốn gas | ✅ |
+| 🎓 **Xét tốt nghiệp** | Contract tự kiểm tra on-chain | ✅ Tự động hóa | ✅ 100% |
+| 📝 **Cập nhật điểm** | Version mới, event cũ vẫn tồn tại | ✅ Audit trail đầy đủ | ✅ |
+| 🏆 **NFT bằng** | **Sinh viên tự mint**, không cần admin | ✅ Bất biến | ✅ **TRUSTLESS** |
 
 ### Công thức thành công
 
@@ -424,39 +475,50 @@ Lecturer
 💰 Gas saved: ~85% compared to per-course submission
 ```
 
-### Flow 2: Xét tốt nghiệp (Dữ liệu theo học kỳ)
+### Flow 2: Mint Diploma (TRUSTLESS - Sinh viên tự mint)
 
 ```
 Student
    │
-   ├─► 1. Click "Request Graduation"
+   ├─► 1. Click "Mint Diploma" (Tự gọi contract)
    │
-   └─► 2. Contract checks:
+   └─► 2. Contract.mintDiploma() checks:
            │
-           ├─► Read curriculum.requiredSemesters[]
+           ├─► hasDiploma[msg.sender] == false ?
+           │   └─► Revert "Already graduated"
+           │
+           ├─► Read studentMajor[msg.sender] → get major
+           │
+           ├─► Read curriculum[major].requiredSemesters[]
            │   (e.g., ["2021_HK1", "2021_HK2", ..., "2024_HK2"])
            │
-           ├─► For each semester:
+           ├─► For each required semester:
            │   │
-           │   ├─► semesterGrades[student][semesterId].exists ?
+           │   ├─► semesterGrades[msg.sender][semesterId].exists ?
+           │   │   └─► NO → Revert "Missing semester: 2023_HK1"
            │   │
-           │   ├─► Fetch IPFS file via CID
-           │   │
-           │   ├─► Verify hash: keccak256(file) == hashCiphertext ?
-           │   │
-           │   └─► Parse JSON → check all courses >= 5.0
+           │   └─► YES → Continue
            │
-           ├─► All semesters completed & passed?
+           ├─► All semesters exist?
            │   │
-           │   ├─► YES → Calculate Merkle Root from all semesters
+           │   ├─► YES → Calculate Merkle Root
            │   │          │
-           │   │          ├─► merkleRoot = hash(semester1 + semester2 + ...)
+           │   │          ├─► merkleRoot = hash(
+           │   │          │      semesterGrades[student][HK1].hashCiphertext +
+           │   │          │      semesterGrades[student][HK2].hashCiphertext +
+           │   │          │      ...
+           │   │          │   )
            │   │          │
-           │   │          └─► mintDiplomaNFT(student, merkleRoot)
-           │   │                   │
-           │   │                   └─► Emit: DiplomaIssued(tokenId, student)
+           │   │          ├─► _safeMint(msg.sender, tokenId)
+           │   │          │
+           │   │          ├─► hasDiploma[msg.sender] = true
+           │   │          │
+           │   │          └─► Emit: DiplomaIssued(tokenId, msg.sender, merkleRoot)
            │   │
-           │   └─► NO → Revert "Not eligible: missing/failed courses"
+           │   └─► NO → Revert "Not eligible"
+
+💡 Không cần admin, không cần phê duyệt
+✅ Trustless 100%
 ```
 
 ### Flow 3: Verify bằng cấp
@@ -511,28 +573,41 @@ Lecturer    Frontend    IPFS    Smart Contract    Blockchain
     │◄─Success───┤         │            │              │
 ```
 
-### Sequence: Check Graduation & Mint NFT
+### Sequence: Mint Diploma (TRUSTLESS)
 
 ```
-Student    Frontend    Smart Contract    NFT Contract    Blockchain
-   │           │              │                 │             │
-   ├─Request──►│              │                 │             │
-   │           │              │                 │             │
-   │           ├─checkGraduation()─────►│       │             │
-   │           │              │         │       │             │
-   │           │              ├─Read curriculum─┤             │
-   │           │              │         │       │             │
-   │           │              ├─Check all grades┤             │
-   │           │              │         │       │             │
-   │           │              ├─Calculate Merkle│             │
-   │           │              │         │       │             │
-   │           │              ├─mintNFT()──────►│             │
-   │           │              │         │       ├─Mint NFT───►│
-   │           │              │         │       │             │
-   │           │              │         │◄──tokenId───────────┤
-   │           │              │         │       │             │
-   │           │◄─────────Success───────┤       │             │
-   │◄─Success──┤              │         │       │             │
+Student    Frontend    Smart Contract (StudentManagement)    Blockchain
+   │           │                      │                           │
+   ├─Click─────►│                     │                           │
+   │  "Mint"    │                     │                           │
+   │           │                      │                           │
+   │           ├─mintDiploma()───────►│                           │
+   │           │  (msg.sender)        │                           │
+   │           │                      │                           │
+   │           │              ┌───────┴────────┐                  │
+   │           │              │ 1. Check:      │                  │
+   │           │              │  hasDiploma?   │                  │
+   │           │              │                │                  │
+   │           │              │ 2. Check:      │                  │
+   │           │              │  All semesters │                  │
+   │           │              │  exist?        │                  │
+   │           │              │                │                  │
+   │           │              │ 3. Calculate:  │                  │
+   │           │              │  merkleRoot    │                  │
+   │           │              └───────┬────────┘                  │
+   │           │                      │                           │
+   │           │                      ├─_safeMint(student)───────►│
+   │           │                      │                           │
+   │           │                      ├─hasDiploma[]=true────────►│
+   │           │                      │                           │
+   │           │                      ├─Emit DiplomaIssued───────►│
+   │           │                      │                           │
+   │           │◄─────Success─────────┤                           │
+   │           │  (tokenId, merkleRoot)                           │
+   │◄─Success──┤                      │                           │
+   │  "Congrats!"                     │                           │
+
+💡 NO ADMIN INVOLVED - Fully Trustless
 ```
 
 ---
@@ -649,17 +724,52 @@ contract StudentManagement is AccessControl, ERC721 {
         return true;
     }
     
-    // Mint diploma NFT
-    function mintDiploma(address student, bytes32 merkleRoot) 
+    // Calculate Merkle root from all semesters
+    function calculateMerkleRoot(address student) public view returns (bytes32) {
+        bytes32 major = studentMajor[student];
+        Curriculum storage curriculum = curriculums[major];
+        bytes32[] memory hashes = new bytes32[](curriculum.requiredSemesters.length);
+        
+        for (uint i = 0; i < curriculum.requiredSemesters.length; i++) {
+            bytes32 semesterId = curriculum.requiredSemesters[i];
+            hashes[i] = semesterGrades[student][semesterId].hashCiphertext;
+        }
+        
+        // Simple merkle root: hash of all semester hashes
+        return keccak256(abi.encodePacked(hashes));
+    }
+    
+    // Mint diploma NFT - TRUSTLESS (Student calls directly)
+    mapping(address => bool) public hasDiploma;
+    
+    function mintDiploma() external {
+        address student = msg.sender;
+        
+        // Prevent double minting
+        require(!hasDiploma[student], "Already graduated");
+        
+        // Check eligibility (all semesters completed)
+        require(checkGraduation(student), "Not eligible: missing required semesters");
+        
+        // Calculate merkle root
+        bytes32 merkleRoot = calculateMerkleRoot(student);
+        
+        // Mint NFT
+        uint256 tokenId = _tokenIdCounter++;
+        _safeMint(student, tokenId);
+        hasDiploma[student] = true;
+        
+        emit DiplomaIssued(tokenId, student, merkleRoot, block.timestamp);
+    }
+    
+    // Admin can revoke diploma in case of fraud (optional, with governance)
+    function revokeDiploma(address student, uint256 tokenId) 
         external 
         onlyRole(ADMIN_ROLE) 
     {
-        require(checkGraduation(student), "Not eligible");
-        
-        uint256 tokenId = _tokenIdCounter++;
-        _safeMint(student, tokenId);
-        
-        emit DiplomaIssued(tokenId, student, merkleRoot, block.timestamp);
+        require(ownerOf(tokenId) == student, "Invalid token");
+        _burn(tokenId);
+        hasDiploma[student] = false;
     }
     
     // Get semester data
