@@ -55,3 +55,8 @@ truffle migrate --reset --network development
 ```
 ipfs daemon
 ```
+### chạy ganache
+
+```
+ganache-cli --deterministic
+```
